@@ -2,7 +2,7 @@
 .SYNOPSIS Use this with the new Exchange V2 cmdlets. This script is designed to list out the majority of permissions in exchange
 a user has, as well as permissions on the users mailbox. These permissions are listed on screen and output to file
 for documentation purposes. Permissions can also be removed with this script. 
-.EXAMPLE .\term_mbx_perms-outfileV2.ps1 -user user@domain.com
+.EXAMPLE .\Get-UserExchPermissions.ps1 -user user@domain.com
 Written by David Just
 #>
 #Requires -Module ExchangeOnlineManagement

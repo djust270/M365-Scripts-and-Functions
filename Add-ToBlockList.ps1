@@ -1,3 +1,4 @@
+#Requires -Module ExchangeOnlineManagement
 <#
 .Synopsis
 Adds sender or domain to the spam filter blocked senders list
@@ -20,12 +21,7 @@ Param (
 $exchangemodule = Get-Module ExchangeOnlineManagement
 $exchangemoduleinstalled = Get-InstalledModule ExchangeOnlineManagement
 
-if (($exchangemodule -eq $null) -and ($exchangemoduleinstalled))
-    {Write-Warning "Not Connected to ExchangeOnline, Connecting Now"
-    Connect-ExchangeOnline}
-
-elseif (($exchangemodule -eq $null) -and ($exchangemoduleinstalled -eq $null)){
-Write-Error "Exchange Online Module is not installed, Please install with 'Install-Module ExchangeOnline'" -EA Stop}
+Connect-ExchangeOnline
 
 $filter = Get-HostedContentFilterPolicy -Identity $blocklist
 $senders = $filter.BlockedSenders.sender | select -expandproperty address 
