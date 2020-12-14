@@ -114,7 +114,7 @@ switch ($prompt)
 			{
 				$mbxperms | foreach {
 					Write-Host "Removing mailbox permission from $($_.identity)"
-					remove-mailboxpermission -identity $_.identity -user $_.user -accessrights $_.accessrights 
+					remove-mailboxpermission -identity $_.identity -user $_.user -accessrights $_.accessrights -confirm:$false
 				}
 			}
 		}
@@ -126,7 +126,7 @@ switch ($prompt)
 			{
 				$calperms | foreach {
 					Write-Host "Removing Calendar permission from $($_.identity)"
-					Remove-Mailboxfolderpermission -identity $_.identity -user $_.user 
+					Remove-Mailboxfolderpermission -identity $_.identity -user $_.user -confirm:$false
 				}
 			}
 		}
@@ -137,7 +137,7 @@ switch ($prompt)
 			{
 				$contactperms | foreach {
 					Write-Host "Removing contact folder permission from $($_.identity)"
-					Remove-Mailboxfolderpermission -identity $_.identity -user $_.user 
+					Remove-Mailboxfolderpermission -identity $_.identity -user $_.user -confirm:$false
 				}
 			}
 		}
@@ -148,7 +148,7 @@ switch ($prompt)
 			{
 				$sendasperms | foreach {
 					Write-Host "Removing sendas permission from $($_.identity)"
-					remove-recipientpermission -identity $_.identity -trustee $_.trustee -accessrights SendAs 
+					remove-recipientpermission -identity $_.identity -trustee $_.trustee -accessrights SendAs -confirm:$false
 				}
 			}
 		}
