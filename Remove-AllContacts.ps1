@@ -8,8 +8,8 @@ Connect-Graph -Scopes "User.Read","User.ReadWrite.All","Mail.ReadWrite",`
             "Directory.Read.All","Chat.ReadWrite", "People.Read", `
             "Group.Read.All", "Tasks.ReadWrite", `
             "Sites.Manage.All","Contacts.ReadWrite","Contacts.Read","Contacts.Read.Shared","Contacts.ReadWrite.Shared"
-
-for ($loop = 1; $loop lt #number of loops ; $loop++){
+$loops = Read-Host "enter number of loops to run"
+for ($loop = 1; $loop -lt $loops ; $loop++){
 	Write-Host "Loop Iteration $loop"
 	$i=0
 $contacts = Get-MgUserContact -UserId user@domain.com -top 5000
