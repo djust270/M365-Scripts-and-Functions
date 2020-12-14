@@ -64,9 +64,11 @@ if ((Get-MsolUser -ReturnDeletedUsers -UserPrincipalName $upn).count -gt 0)
                     }
             #If multiple licenses skus, prompt for which sku to add
                     else {   
+                        Write-Host "License Count"
+                        Get-MsolAccountSku | select AccountSkuID,@{n="available licenses";e={$_.ActiveUnits - $_.ConsumedUnits}}
             do { 
                
-                   Write-Host "Please Select a license to add to restored account"
+                   
            
                    $index = 1
                    foreach ($obj in $licenses) {
@@ -76,7 +78,7 @@ if ((Get-MsolUser -ReturnDeletedUsers -UserPrincipalName $upn).count -gt 0)
            
                    }
                
-                   $Selection = Read-Host 
+                   $Selection = Read-Host "Please Select a license to add to restored account by number"
            
                } until ($licenses[$selection-1])
             Set-MsolUserLicense -UserPrincipalName $upn -AddLicenses $licenses[$selection-1]
