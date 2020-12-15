@@ -33,6 +33,7 @@ $user = $upn
 Connect-MsolService
 Connect-ExchangeOnline
 Connect-AzureAD
+$AZUser = Get-AzureADUser -ObjectId $user
 #Get Tenant Name for SPO Url
 $skuid = (Get-MsolAccountSku).AccountSkuID 
 $spname = $skuid.Split(":")[0]
@@ -116,22 +117,30 @@ foreach ($Group in (Get-MsolGroup -all)) {if (Get-MsolGroupMember -all -GroupObj
 #Get and List Group Membership
 $AzGroups = foreach ($Group in (Get-AzureADGroup)) {if (Get-AzureADGroupMember -ObjectId $Group.ObjectId | where {$_.UserPrincipalName -eq "$user"}) {$Group}}
 $DistroGroups = foreach ($Group in (Get-DistributionGroup)) {if (Get-DistributionGroupMember -identity $Group.name | where {$_.PrimarySmtpAddress -eq "$user"}) {$Group}}
-     $GroupList = [PSCustomObject]@{
-                                 User = $upn
-                                 M365Groups = $AzGroups.Displayname
-                                 DistroGroups = $DistroGroups.Displayname
-                                                                            }
-$GroupList
+    
+Write-output M365Groups `r--------- ; $AzGroups.displayname
+Write-output M365Groups `r--------- ; $DistroGroups.displayname
+
 
 foreach ($group in $AzGroups){
+    try{
     Write-Output "Removing $user from $($group.displayname)"
     Remove-AzureADGroupMember -ObjectId $Group.ObjectID -MemberID $Azuser.ObjectID 
     }
+    Catch{
+        Write-Host $_.exception -ForegroundColor Red
+    }
+                             }
 
     foreach ($group in $DistroGroups){
+        try{
         Write-Output "Removing $user from $($group.displayname)"
-        Remove-DistributionGroupMember -identity $group.name -memberID $user -confirm:$false
+        Remove-DistributionGroupMember -identity $group.name -memberID $Azuser.ObjectID -confirm:$false
         }
+        catch{
+            Write-Host $_.exception -ForegroundColor Red
+        }
+                                     }
 
 #Hide from GAL
 Set-Mailbox -Identity $user -HiddenFromAddressListsEnabled $true
