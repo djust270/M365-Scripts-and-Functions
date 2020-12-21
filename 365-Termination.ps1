@@ -17,7 +17,7 @@ Specify this switch to enable forwarding to the manager
 Will enable fullaccess to the users mailbox. Default is the manager. Can accept multiple strings. 
 Written By David Just
 #>
-function Terminate-365User {
+
 [cmdletbinding()]
 Param (
     [Parameter(Mandatory,ValueFromPipeline=$true)][String]$UPN,
@@ -128,7 +128,7 @@ foreach ($group in $AzGroups){
     Remove-AzureADGroupMember -ObjectId $Group.ObjectID -MemberID $Azuser.ObjectID 
     }
     Catch{
-        Write-Host $_.exception -ForegroundColor Red
+        Write-Host $_ -ForegroundColor Red
     }
                              }
 
@@ -138,12 +138,19 @@ foreach ($group in $AzGroups){
         Remove-DistributionGroupMember -identity $group.name -memberID $Azuser.ObjectID -confirm:$false
         }
         catch{
-            Write-Host $_.exception -ForegroundColor Red
+            Write-Host $_ -ForegroundColor Red
         }
                                      }
 
 #Hide from GAL
 Set-Mailbox -Identity $user -HiddenFromAddressListsEnabled $true
+
+#Try to set litigation hold
+Try{
+Set-Mailbox -Identity $user -LitigationHoldEnabled $true
+}Catch{
+    Write-Host $_ -ForegroundColor Red
+}
 
 #Set out of office message message
 $date = Get-Date -UFormat "%A %B %d %Y"
@@ -160,14 +167,16 @@ if ($fullaccess -ne $null){
     Add-MailboxPermission -identity $user -User $object -accessrights FullAccess}
     }
 
-$upn -match "([a-z]+)+([a-z]+)"
-$username = $matches[0]
-$odsite = "https://" + $spname + "-my.sharepoint.com/personal/" + $username + "_" +$spname +"_com"
+$username = [mailaddress]$upn
+$odsite = "https://" + $spname + "-my.sharepoint.com/personal/" + $username.User + "_" +($username.host.split('.')[0]) +"_"+($username.host.split('.')[1])
 
 #Grant Manager OnedriveAccess
+try{
 Set-SPOUser -site $ODsite -LoginName $manager -IsSiteCollectionAdmin $true
-
+}
+Catch{
+    Write-Host $_ -ForegroundColor Red
+}
 Write-Host "Users OneDrive URL : $ODSite"
 Pause
 Stop-Transcript
-}
