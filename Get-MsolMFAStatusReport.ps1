@@ -15,7 +15,7 @@
 
 #>
 
-function Get-MSOLMFAStatus
+function Get-MsolMFAStatus
 {
 	[CmdletBinding()]
 	param (
