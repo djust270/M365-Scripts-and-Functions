@@ -1,4 +1,5 @@
-﻿<#
+#Requires -Module Microsoft.Online.SharePoint.PowerShell
+<#
 Synopsis - List out the permission levels and users for  
 every non-empty sharepoint site export to excel spreadsheet
 #>
