@@ -17,6 +17,8 @@ Switch parameter. Using this switch will only display a comparison of group memb
 
 .NOTES
 Usage: Download script. Open Windows PowerShell, path to download location ("cd downloads" for example). Then run script
+Written by David Just 2/13/22
+github@justgeeks.co
 
 .EXAMPLE
 PS >.\MirrorGroupMemberships.ps1 -ReferenceUser userA@domain.com -TargetUser userB@domain.com
