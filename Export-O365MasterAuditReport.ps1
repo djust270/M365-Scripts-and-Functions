@@ -9,7 +9,27 @@
 	 Filename: Export-O365MasterAuditReport.ps1
 	===========================================================================
 	.DESCRIPTION
-		Uses the Microsoft Graph PowerShell SDK to generate a tenant audit report
+Uses the Microsoft Graph PowerShell SDK to export a tenant audit report to an excel workbook. Report areas include:
+
+List all users (including guest accounts), including status, license information, group memberships
+
+List all groups, types of group (security, distribution, 365, dynamic) , source of authority
+
+List all group members
+
+List all Enterprise Apps with SSO integration (including SAML certificate expiration date and notification email)
+
+List all Admin roles and members
+
+List all Teams and members, Team channels, and Teams usage
+
+List all SharePoint sites / OneDrive sites and details
+
+List all Shared Mailboxes and Permissions
+
+List all Mailboxes (non-shared), including mailbox aliases and mailbox size
+
+List all Tenant licenses and usage
 #>
 #region Check and load Required Modules
 $isAdmin = [bool](([System.Security.Principal.WindowsIdentity]::GetCurrent()).groups -match "S-1-5-32-544")
