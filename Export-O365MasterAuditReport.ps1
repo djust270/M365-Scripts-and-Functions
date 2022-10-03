@@ -163,9 +163,28 @@ function Export-MailboxReport #Export details on all non-shared mailboxes
 		$TotalSize = (Get-MailboxStatistics -Identity $box.identity).TotalItemSize
 		$box | Select-Object Identity, Displayname, PrimarySMTPAddress, @{
 			n = 'EmailAddresses'; e = { ($_.EmailAddresses -join ' , ') }
-		}, HiddenFromAddressListsEnabled, @{ n = 'TotalSize'; e = { $TotalSize } }, ForwardingAddress, ForwardingSmtpAddress , isResource
+		}, HiddenFromAddressListsEnabled, @{ n = 'TotalSize'; e = { $TotalSize } }, ForwardingAddress, ForwardingSmtpAddress , isResource , RecipientTypeDetails
 	}
 	$MailboxDetails | Export-Excel -Path $Workbook -WorksheetName "MailboxReport" -TableName "Mailboxes" -AutoSize
+}
+
+function Set-M365AdminReportSettings {
+    param(
+        [Switch]$ShowNames,
+        [Switch]$ConcealNames
+    )    
+    if ($ShowNames){
+        Invoke-MGGraphRequest -Method PATCH -uri "/beta/admin/reportSettings" -body @{ "displayConcealedNames" = $false }
+    }
+    else {
+        Invoke-MGGraphRequest -Method PATCH -uri "/beta/admin/reportSettings" -body @{ "displayConcealedNames" = $true }
+    }
+}
+
+function Get-M365AdminReportSettings {   
+    $RequiredScopes = 'ReportSettings.ReadWrite.All'
+    Set-M365MGGraphConnectionScopes -RequiredScopes $RequiredScopes
+    Invoke-MGGraphRequest -Method GET -uri "/beta/admin/reportSettings"
 }
 #endregion
 #region Connect to resources
@@ -361,8 +380,6 @@ $UserLicenseDetails = $Users | Select-Object UserPrincipalName, AccountEnabled, 
 	}
 },@{ name = "MemberOf"; Expression = { $_.additionalproperties.GroupMemberships } }
 
-$UnLicensed = $Users | Where-Object { -not $_.LicenseDetails } | Select-Object UserPrincipalName, AccountEnabled, Mail, PasswordPolicies, UserType
-$LicenseReport = "$folderpath\$CompanyName-UserLicenseAudit.csv"
 $UserLicenseDetails | Export-Excel -path $ReportWorkBook -WorksheetName "UserDetails" -tablename "UserDetails" -Autosize
 $TenantLicenseDetails | Export-Excel -path $ReportWorkBook -WorksheetName "TenantLicenseDetails" -TableName "LicenseDetails" -AutoSize
 
@@ -507,8 +524,17 @@ $TeamsDetails | Export-Excel -Path $ReportWorkbook -WorksheetName "Teams" -Table
 $TeamsChannels | Export-Excel -Path $ReportWorkbook -WorksheetName "TeamsChannels" -TableName 'TeamsChannels' -AutoSize
 
 # Enable Display Concealed Names in Reports
-Invoke-MGGraphRequest -Method PATCH -uri "/beta/admin/reportSettings" -body @{ "displayConcealedNames" = $false }
-Get-MGTeamsUsageReport -Period D90 | Export-Excel -Path $ReportWorkbook -WorksheetName "TeamsUsageReport" -TableName "TeamsUsageReport" -AutoSize
+$DisplayConcealedNames = (Get-M365AdminReportSettings).displayConcealedNames 
+	if ($DisplayConcealedNames -eq $false)
+	{
+		Set-M365AdminReportSettings -ShowNames
+		Get-MGTeamsUsageReport -Period D90 | Export-Excel -Path $ReportWorkbook -WorksheetName "TeamsUsageReport" -TableName "TeamsUsageReport" -AutoSize
+		Set-M365AdminReportSettings -ConcealNames
+	}
+	else 
+	{
+		Get-MGTeamsUsageReport -Period D90 | Export-Excel -Path $ReportWorkbook -WorksheetName "TeamsUsageReport" -TableName "TeamsUsageReport" -AutoSize
+	}
 #endregion
 
 #region Sharepoint/OneDrive Sites
