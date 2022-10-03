@@ -510,7 +510,7 @@ foreach ($Team in $Teams)
 			'Visibility' = $Team.Visibility
 			'Members' = $TeamMembers.AdditionalProperties.email -join ' ; '
 		})
-	$Channels | foreach {
+	$Channels | foreach-object {
 			$TeamsChannels.Add(
 				[pscustomobject]@{
 					'Team' = $Team.displayname
