@@ -9,27 +9,12 @@
 	 Filename: Export-O365MasterAuditReport.ps1
 	===========================================================================
 	.DESCRIPTION
-Uses the Microsoft Graph PowerShell SDK to export a tenant audit report to an excel workbook. Report areas include:
-
-List all users (including guest accounts), including status, license information, group memberships
-
-List all groups, types of group (security, distribution, 365, dynamic) , source of authority
-
-List all group members
-
-List all Enterprise Apps with SSO integration (including SAML certificate expiration date and notification email)
-
-List all Admin roles and members
-
-List all Teams and members, Team channels, and Teams usage
-
-List all SharePoint sites / OneDrive sites and details
-
-List all Shared Mailboxes and Permissions
-
-List all Mailboxes (non-shared), including mailbox aliases and mailbox size
-
-List all Tenant licenses and usage
+		Uses the Microsoft Graph PowerShell SDK to generate a tenant audit report
+#>
+<#
+CHANGELOG:
+09/26/2022 - Added teams channel members to teams channel report, Added check for invalid report file path
+09/28/2022 - Added forwarding addresses to mailbox report and isResource properties
 #>
 #region Check and load Required Modules
 $isAdmin = [bool](([System.Security.Principal.WindowsIdentity]::GetCurrent()).groups -match "S-1-5-32-544")
@@ -47,10 +32,29 @@ foreach ($module in $prereqmodules)
 	if ($module -notin $available)
 	{
 		"{0} module not detected, attempting to install..." -f $module
+		if ($module -eq 'Microsoft.Graph')
+		{
+			Write-Warning "Installing the Microsoft Graph PowerShell SDK may take sometime. Please do not close this window."
+		}
+		
 		if (-not $isadmin)
-		{ install-module $module -scope CurrentUser }
-		else { Install-Module $module }
-	}	
+		{
+			install-module $module -scope CurrentUser
+			if ($PSEdition -eq "Core" -and $module -eq 'Microsoft.Online.Sharepoint.PowerShell')
+			{
+				$docs = [System.Environment]::GetFolderPath('MyDocuments')
+				move-item "$docs\PowerShell\Module\Microsoft.Online.SharePoint.PowerShell" "$docs\WindowsPowerShell\Modules\Microsoft.Online.Sharepoint.PowerShell" -Force
+			}
+		}
+		else
+		{
+			Install-Module $module
+			if ($PSEdition -eq "Core" -and $module -eq 'Microsoft.Online.Sharepoint.PowerShell')
+			{
+				move-item "$env:ProgramFiles\PowerShell\Module\Microsoft.Online.SharePoint.PowerShell" "${env:ProgramFiles(x86)}\WindowsPowerShell\Modules\Microsoft.Online.Sharepoint.PowerShell" -Force
+			}
+		}
+	}
 }
 if ($PSEdition -eq "Core")
 {
@@ -68,7 +72,7 @@ Function Get-SaveFolderLocation
 {
 	[System.Reflection.Assembly]::LoadWithPartialName("System.windows.forms") |	Out-Null
 	$SaveFolderDialog = New-Object System.Windows.Forms.FolderBrowserDialog
-	#$SaveFolderDialog.Description = "Select a folder to save reports to" | out-null
+	$SaveFolderDialog.Description = "Select a folder to save reports to" | out-null
 	$SaveFolderDialog.ShowDialog() | out-null
 	return $SaveFolderDialog.SelectedPath
 }
@@ -130,16 +134,19 @@ function Export-SharedMailboxReport
 		Connect-ExchangeOnline
 	}
 	
-	$i = 0	
+	$i = 1	
 	$Shared = Get-Mailbox -Filter { isShared -eq 'true' }
 	$SharedPermissions = foreach ($box in $shared)
 	{
-		Write-Progress -Activity "Processing Shared Mailbox Permissions" -Status "Working on $($box.displayname)" -PercentComplete (($i / $shared.Count) * 100)
+		if ($Shared.count -gt 1)
+		{
+			Write-Progress -Activity "Processing Shared Mailbox Permissions" -Status "Working on $($box.displayname)" -PercentComplete (($i / $shared.Count) * 100)
+		}		
 		Get-MailboxPermission $box.identity | Where-Object { $_.User -notlike "*NT Authority*" } | Select-Object identity, user, @{ name = 'accessrights'; e = { ($_.accessrights -join ' , ') } }
 	}
-	$shared | Select-Object Identity, Displayname, PrimarySMTPAddress, @{
+	$Shared | Select-Object Identity, Displayname, PrimarySMTPAddress, @{
 		n = 'EmailAddresses'; e = { ($_.EmailAddresses -join ' , ') }
-	},HiddenFromAddressListsEnabled | Export-Excel -Path $Workbook -WorksheetName "SharedMailboxReport" -TableName "SharedMailboxes" -AutoSize
+	}, HiddenFromAddressListsEnabled, ForwardingAddress, ForwardingSmtpAddress | Export-Excel -Path $Workbook -WorksheetName "SharedMailboxReport" -TableName "SharedMailboxes" -AutoSize
 	$SharedPermissions | Export-Excel -Path $Workbook -WorksheetName "SharedMailboxPermissions" -TableName "SharedPerms" -AutoSize
 }
 
@@ -149,21 +156,23 @@ function Export-MailboxReport #Export details on all non-shared mailboxes
 		[string]$Workbook
 	)
 	$mailboxes = Get-Mailbox -Filter { isShared -eq 'false' }
-	$i = 0
+	$i = 1
 	$MailboxDetails = foreach ($box in $mailboxes)
 	{
 		Write-Progress -Activity "Processing Mailbox Report" -Status "Working on $($box.displayname)" -PercentComplete (($i / $mailboxes.Count) * 100)
 		$TotalSize = (Get-MailboxStatistics -Identity $box.identity).TotalItemSize
 		$box | Select-Object Identity, Displayname, PrimarySMTPAddress, @{
 			n = 'EmailAddresses'; e = { ($_.EmailAddresses -join ' , ') }
-		}, HiddenFromAddressListsEnabled, @{ n = 'TotalSize'; e = { $TotalSize } }
+		}, HiddenFromAddressListsEnabled, @{ n = 'TotalSize'; e = { $TotalSize } }, ForwardingAddress, ForwardingSmtpAddress , isResource
 	}
-	$MailboxDetails | Export-Excel -Path $Workbook -WorksheetName "MailboxReport" -TableName "Mailboxes" -AutoSize	
+	$MailboxDetails | Export-Excel -Path $Workbook -WorksheetName "MailboxReport" -TableName "Mailboxes" -AutoSize
 }
 #endregion
-
-$CompanyName = Read-Host "Enter Company Name for report title"
-Write-Host "Please select a folder to save reports to:" -ForegroundColor White -BackgroundColor Black
+#region Connect to resources
+$CompanyName = Read-Host 'Enter Company Name for report title (which will be *CompanyName*-O365AuditReport)'
+Write-Host "Report title set to $($CompanyName+'-O365AuditReport')" -ForegroundColor Green -BackgroundColor Black
+Write-Host "Please select a folder to save reports to:" -ForegroundColor Green -BackgroundColor Black
+Write-Host "Connecting to the Microsoft Graph API" -ForegroundColor Green -BackgroundColor Black
 $folderpath = Get-SaveFolderLocation
 $ReportWorkbook = "$folderpath\$CompanyName-O365AuditReport.xlsx"
 
@@ -183,9 +192,11 @@ $perms = @(
 Connect-MgGraph -ForceRefresh -Scopes $perms
 Select-MgProfile beta
 $SharepointAdminURL = (Invoke-MgGraphRequest -Uri 'https://graph.microsoft.com/v1.0/sites?$select=siteCollection,webUrl&$filter=siteCollection/root%20ne%20null').value.weburl -replace '.sharepoint', '-admin.sharepoint'
+Write-Host "Connecting to Exchange Online" -ForegroundColor Green -BackgroundColor Black 
 Connect-ExchangeOnline -ShowBanner:$false
+Write-Host "Connecting to SharePoint Online" -ForegroundColor Green -BackgroundColor Black 
 Connect-SPOService -Url $SharepointAdminURL
-
+#endregion
 #Region User Report
 Write-Progress -Activity "Working on License Reports"
 $FriendlyLicenses = @{
@@ -318,7 +329,7 @@ $FriendlyLicenses = @{
 
 # Get all tenant skus
 [Array]$Skus = Get-MgSubscribedSku
-$TenantLicenseDetails = $Skus | foreach {
+$TenantLicenseDetails = $Skus | ForEach-Object {
 	[pscustomobject]@{
 		SkuPartNumber = $_.SkuPartNumber
 		TotalLicense  = $_.prepaidunits.enabled
@@ -340,8 +351,8 @@ $UserLicenseDetails = $Users | Select-Object UserPrincipalName, AccountEnabled, 
 @{
 	name = 'Licenses'
 	expression = {
-		($_ | foreach {
-				$_.licensedetails | foreach {
+		($_ | ForEach-Object {
+				$_.licensedetails | ForEach-Object {
 					if ($FriendlyLicenses[$_.SkuPartNumber]) { $FriendlyLicenses[$_.SkuPartNumber] }
 					elseif ($.SkuPartID) { $_.SkuPartID }
 					else {"No license"}
@@ -350,7 +361,7 @@ $UserLicenseDetails = $Users | Select-Object UserPrincipalName, AccountEnabled, 
 	}
 },@{ name = "MemberOf"; Expression = { $_.additionalproperties.GroupMemberships } }
 
-$UnLicensed = $Users | where { -not $_.LicenseDetails } | select UserPrincipalName, AccountEnabled, Mail, PasswordPolicies, UserType
+$UnLicensed = $Users | Where-Object { -not $_.LicenseDetails } | Select-Object UserPrincipalName, AccountEnabled, Mail, PasswordPolicies, UserType
 $LicenseReport = "$folderpath\$CompanyName-UserLicenseAudit.csv"
 $UserLicenseDetails | Export-Excel -path $ReportWorkBook -WorksheetName "UserDetails" -tablename "UserDetails" -Autosize
 $TenantLicenseDetails | Export-Excel -path $ReportWorkBook -WorksheetName "TenantLicenseDetails" -TableName "LicenseDetails" -AutoSize
@@ -443,7 +454,7 @@ $AllGroups = @(
 
 $AllGroups | Export-Excel -Path $ReportWorkbook -WorksheetName "GroupDetails" -TableName "GroupDetails" -AutoSize
 $GroupMemberList = [System.Collections.Generic.List[PsObject]]::new()
-$i = 0
+$i = 1
 foreach ($group in $AllGroups)
 {
 	Write-Progress -Activity "Processing GroupMemberships" -Status "Working on $($group.displayname)" -PercentComplete (($i / $AllGroups.Count) * 100)	
@@ -487,6 +498,7 @@ foreach ($Team in $Teams)
 				[pscustomobject]@{
 					'Team' = $Team.displayname
 					'Channel' = $_.displayname
+					'ChannelMembers' = ((Get-MgTeamChannelMember -ChannelId $_.id -TeamId $Team.id).AdditionalProperties.email -join ' , ')
 				}
 			)
 		}
@@ -562,3 +574,13 @@ Disconnect-MgGraph
 Disconnect-ExchangeOnline -Confirm:$false
 Disconnect-SPOService
 "Report saved to {0}" -f $ReportWorkbook
+$OpenPrompt = Read-Host "Would you like to open the report now? (Y/N)"
+if ($OpenPrompt -like "y")
+{
+	& $ReportWorkbook
+	"Done!"
+}
+else
+{
+	"Done!"
+}
