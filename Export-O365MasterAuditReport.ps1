@@ -15,6 +15,7 @@
 CHANGELOG:
 09/26/2022 - Added teams channel members to teams channel report, Added check for invalid report file path
 09/28/2022 - Added forwarding addresses to mailbox report and isResource properties
+10/03/2022 - Fixed typo in user report region, updated mailbox report with RecipientTypeDetails
 #>
 #region Check and load Required Modules
 $isAdmin = [bool](([System.Security.Principal.WindowsIdentity]::GetCurrent()).groups -match "S-1-5-32-544")
@@ -476,7 +477,7 @@ foreach ($group in $AllGroups)
 {
 	Write-Progress -Activity "Processing GroupMemberships" -Status "Working on $($group.displayname)" -PercentComplete (($i / $AllGroups.Count) * 100)	
 	$Members = Get-MgGroupMember -GroupId $group.id
-	$Members | foreach {
+	$Members | ForEach-Object {
 		$GroupMemberList.Add(
 			[pscustomobject]@{
 				'GroupName' = $group.displayname
