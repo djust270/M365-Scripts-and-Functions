@@ -358,7 +358,7 @@ $TenantLicenseDetails = $Skus | ForEach-Object {
 }
 
 [Array]$Users = Get-MGUser -All
-$i = 0
+$i = 1
 foreach ($user in $Users)
 {
 	Write-Progress -Activity "Processing User License details" -Status "Working on $($user.displayname)" -PercentComplete (($i / $Users.Count) * 100)
