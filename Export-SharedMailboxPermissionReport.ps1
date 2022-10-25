@@ -42,7 +42,7 @@ $SharedMailboxes = Get-Mailbox -Filter { isShared -eq 'true' } -Resultsize Unlim
 $i = 1
 $PermissionReportArray = foreach ($box in $SharedMailboxes){
     Write-Progress -Activity "Working on Shared Mailbox Permission Report" -Status "Working on $($box.Identity)" -PercentComplete (($i / $SharedMailboxes.Count) * 100)
-    $Permissions = Get-MailboxPermission -Identity $box.Guid.Guid
+    $Permissions = Get-MailboxPermission -Identity $box.Guid.Guid | where-object {$_.user -notmatch "NT AUTHORITY\SELF"}
     $Permissions | ForEach-Object {
         [PSCustomObject]@{
             Identity = $_.identity
