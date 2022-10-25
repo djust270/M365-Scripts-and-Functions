@@ -46,6 +46,7 @@ $PermissionReportArray = foreach ($box in $SharedMailboxes){
     $Permissions | ForEach-Object {
         [PSCustomObject]@{
             Identity = $_.identity
+	    DisplayName = $box.displayname
             PrimarySMTPAddress = $box.PrimarySMTPAddress
             User = $_.User
             AccessRights = $($_.AccessRights -join ',')
