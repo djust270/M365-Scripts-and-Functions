@@ -27,7 +27,7 @@ foreach ($module in $prereqmodules)
 		"{0} module not detected, attempting to install..." -f $module			
 		if (-not $isadmin)
 		{
-			install-module $module -scope CurrentUser			
+			Install-Module $module -scope CurrentUser			
 		}
 		else
 		{
@@ -42,16 +42,26 @@ $SharedMailboxes = Get-Mailbox -Filter { isShared -eq 'true' } -Resultsize Unlim
 $i = 1
 $PermissionReportArray = foreach ($box in $SharedMailboxes){
     Write-Progress -Activity "Working on Shared Mailbox Permission Report" -Status "Working on $($box.Identity)" -PercentComplete (($i / $SharedMailboxes.Count) * 100)
-    $Permissions = Get-MailboxPermission -Identity $box.Guid.Guid | where-object {$_.user -notlike "NT AUTHORITY\SELF"}
+    $Permissions = Get-MailboxPermission -Identity $box.Guid.Guid | Where-Object {$_.User -notlike "NT AUTHORITY\SELF"}
+	if ($Permissions){
     $Permissions | ForEach-Object {
         [PSCustomObject]@{
             Identity = $_.identity
-	    DisplayName = $box.displayname
             PrimarySMTPAddress = $box.PrimarySMTPAddress
             User = $_.User
             AccessRights = $($_.AccessRights -join ',')
         }        
     }
+}
+
+else {
+	[PSCustomObject]@{
+		Identity = $box.identity
+		PrimarySMTPAddress = $box.PrimarySMTPAddress
+		User = 'N/A'
+		AccessRights = 'N/A'
+	}        
+}
     $i++
 }
 $PermissionReportArray | Export-Excel -Path "$ReportFolder\$DefaultDomain-SharedMailboxPermissionReport.xlsx" -WorksheetName "SharedMailboxReport" -TableName "SharedPermissions" -AutoSize
